@@ -30,7 +30,7 @@ service cloud.firestore {
     }
 
     match /songs/{songId} {
-      allow read: if isOwner(resource.data.userId);
+      allow read: if true; // Publicly readable for sharing
       allow create: if isAuthenticated() && isValidSong(request.resource.data);
       allow update: if false; // Songs are immutable for now
       allow delete: if isOwner(resource.data.userId);

@@ -5,10 +5,22 @@ export interface Song {
   title: string;
   genre: string;
   mood: string;
+  key?: string;
+  scale?: string;
+  instruments?: string[];
   duration: number;
   audioUrl: string;
   lyrics?: string;
+  coverArtUrl?: string;
+  shareId: string;
   createdAt: any; // Firestore Timestamp
+}
+
+export interface MusicOptions {
+  key: string;
+  scale: string;
+  includeInstruments: string[];
+  excludeInstruments: string[];
 }
 
 export interface UserProfile {

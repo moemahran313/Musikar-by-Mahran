@@ -11,12 +11,17 @@
         "title": { "type": "string" },
         "genre": { "type": "string" },
         "mood": { "type": "string" },
+        "key": { "type": "string" },
+        "scale": { "type": "string" },
+        "instruments": { "type": "array", "items": { "type": "string" } },
         "duration": { "type": "number" },
         "audioUrl": { "type": "string" },
         "lyrics": { "type": "string" },
+        "coverArtUrl": { "type": "string" },
+        "shareId": { "type": "string" },
         "createdAt": { "type": "string", "format": "date-time" }
       },
-      "required": ["userId", "prompt", "audioUrl", "createdAt"]
+      "required": ["userId", "prompt", "audioUrl", "shareId", "createdAt"]
     },
     "User": {
       "title": "User",
