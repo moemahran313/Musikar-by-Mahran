@@ -38,6 +38,7 @@ import {
   orderBy, 
   onSnapshot, 
   addDoc, 
+  updateDoc,
   deleteDoc, 
   doc, 
   serverTimestamp,
@@ -80,11 +81,15 @@ export default function App() {
     key: 'C Major',
     scale: 'Ionian',
     includeInstruments: ['Piano', 'Synth'],
-    excludeInstruments: ['Drums']
+    excludeInstruments: ['Drums'],
+    duration: 30
   });
 
   const [generatedLyrics, setGeneratedLyrics] = useState<string>('');
   const [isEditingLyrics, setIsEditingLyrics] = useState(false);
+  const [editingSongId, setEditingSongId] = useState<string | null>(null);
+  const [editTitle, setEditTitle] = useState('');
+  const [saveProgress, setSaveProgress] = useState(0);
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
@@ -195,6 +200,7 @@ export default function App() {
 
     setStatus('generating');
     setError(null);
+    setSaveProgress(0);
 
     try {
       const apiKey = process.env.GEMINI_API_KEY || ""; 
@@ -214,7 +220,10 @@ export default function App() {
       
       // Step 4: Saving
       setQueueStep('saving');
+      // Granular progress simulation
+      setSaveProgress(25);
       const shareId = Math.random().toString(36).substring(2, 15);
+      setSaveProgress(50);
       const songData = {
         userId: user.uid,
         prompt,
@@ -224,7 +233,7 @@ export default function App() {
         key: options.key,
         scale: options.scale,
         instruments: options.includeInstruments,
-        duration: musicResult.duration,
+        duration: options.duration,
         audioUrl: musicResult.audioUrl,
         lyrics: lyrics,
         coverArtUrl: coverArt,
@@ -232,7 +241,9 @@ export default function App() {
         createdAt: serverTimestamp()
       };
 
+      setSaveProgress(75);
       await addDoc(collection(db, 'songs'), songData);
+      setSaveProgress(100);
       
       setStatus('success');
       setQueueStep('idle');
@@ -245,6 +256,28 @@ export default function App() {
         : "Failed to generate. Please try again.");
       setStatus('error');
       setQueueStep('idle');
+    }
+  };
+
+  const handleRegenerateArt = async (song: Song) => {
+    if (!hasApiKey) return handleSelectKey();
+    try {
+      const apiKey = process.env.GEMINI_API_KEY || "";
+      const newArt = await generateCoverArt(song.prompt, song.lyrics || "", apiKey);
+      await updateDoc(doc(db, 'songs', song.id), { coverArtUrl: newArt });
+    } catch (err) {
+      console.error("Art regeneration failed", err);
+      setError("Failed to regenerate art.");
+    }
+  };
+
+  const handleUpdateTitle = async (id: string) => {
+    if (!editTitle.trim()) return;
+    try {
+      await updateDoc(doc(db, 'songs', id), { title: editTitle });
+      setEditingSongId(null);
+    } catch (err) {
+      handleFirestoreError(err, OperationType.UPDATE, `songs/${id}`);
     }
   };
 
@@ -431,6 +464,22 @@ export default function App() {
                         </select>
                       </div>
                       <div className="md:col-span-2">
+                        <label className="text-xs font-bold text-white/40 uppercase mb-2 block">Duration: {options.duration}s</label>
+                        <input 
+                          type="range" 
+                          min="15" 
+                          max="120" 
+                          step="1"
+                          value={options.duration}
+                          onChange={(e) => setOptions({...options, duration: parseInt(e.target.value)})}
+                          className="w-full h-2 bg-white/5 rounded-lg appearance-none cursor-pointer accent-neon-blue"
+                        />
+                        <div className="flex justify-between text-[10px] text-white/20 mt-2">
+                          <span>15s</span>
+                          <span>120s</span>
+                        </div>
+                      </div>
+                      <div className="md:col-span-2">
                         <label className="text-xs font-bold text-white/40 uppercase mb-2 block">Instruments (Include)</label>
                         <div className="flex flex-wrap gap-2">
                           {['Piano', 'Synth', 'Guitar', 'Bass', 'Strings', 'Brass'].map(inst => (
@@ -494,6 +543,15 @@ export default function App() {
                             <span className={cn("text-[10px] font-bold uppercase tracking-widest", isCurrent ? "text-neon-blue" : "text-white/20")}>
                               {step.label}
                             </span>
+                            {isCurrent && step.id === 'saving' && (
+                              <div className="w-full h-1 bg-white/5 rounded-full overflow-hidden mt-1">
+                                <motion.div 
+                                  className="h-full bg-neon-blue"
+                                  initial={{ width: 0 }}
+                                  animate={{ width: `${saveProgress}%` }}
+                                />
+                              </div>
+                            )}
                           </div>
                         );
                       })}
@@ -537,11 +595,40 @@ export default function App() {
                     >
                       {currentSong?.id === song.id && isPlaying ? <Pause /> : <Play className="ml-1" />}
                     </button>
+                    <button 
+                      onClick={() => handleRegenerateArt(song)}
+                      className="absolute top-4 right-4 p-2 bg-dark-bg/50 backdrop-blur-md rounded-lg text-white/60 hover:text-neon-blue opacity-0 group-hover:opacity-100 transition-all"
+                      title="Regenerate Cover Art"
+                    >
+                      <ImageIcon className="w-4 h-4" />
+                    </button>
                   </div>
                   
                   <div className="p-6">
                     <div className="flex justify-between items-start mb-2">
-                      <h3 className="font-bold text-xl truncate pr-4">{song.title}</h3>
+                      {editingSongId === song.id ? (
+                        <div className="flex-1 flex gap-2">
+                          <input 
+                            type="text" 
+                            value={editTitle}
+                            onChange={(e) => setEditTitle(e.target.value)}
+                            className="flex-1 bg-white/5 border border-neon-blue rounded-lg px-2 py-1 text-sm outline-none"
+                            autoFocus
+                          />
+                          <button onClick={() => handleUpdateTitle(song.id)} className="text-neon-blue"><Check className="w-4 h-4" /></button>
+                          <button onClick={() => setEditingSongId(null)} className="text-red-400"><X className="w-4 h-4" /></button>
+                        </div>
+                      ) : (
+                        <h3 
+                          className="font-bold text-xl truncate pr-4 cursor-pointer hover:text-neon-blue transition-colors"
+                          onClick={() => {
+                            setEditingSongId(song.id);
+                            setEditTitle(song.title);
+                          }}
+                        >
+                          {song.title}
+                        </h3>
+                      )}
                       <div className="flex gap-2">
                         <button onClick={() => handleShare(song)} className="p-2 hover:bg-white/5 rounded-lg text-white/40 hover:text-neon-blue">
                           <Share2 className="w-4 h-4" />

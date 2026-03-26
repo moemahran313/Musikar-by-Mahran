@@ -32,7 +32,8 @@ service cloud.firestore {
     match /songs/{songId} {
       allow read: if true; // Publicly readable for sharing
       allow create: if isAuthenticated() && isValidSong(request.resource.data);
-      allow update: if false; // Songs are immutable for now
+      allow update: if isOwner(resource.data.userId) && 
+                     request.resource.data.diff(resource.data).affectedKeys().hasOnly(['title', 'coverArtUrl']);
       allow delete: if isOwner(resource.data.userId);
     }
 

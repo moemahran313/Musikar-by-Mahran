@@ -42,7 +42,10 @@ export async function generateCoverArt(prompt: string, lyrics: string, apiKey: s
 export async function generateMusic(prompt: string, options: MusicOptions, apiKey: string) {
   const ai = new GoogleGenAI({ apiKey });
   
-  const enhancedPrompt = `Create a 30-second track. 
+  // Use Pro model for longer tracks
+  const model = options.duration > 30 ? "lyria-3-pro-preview" : MUSIC_MODEL;
+
+  const enhancedPrompt = `Create a ${options.duration}-second track. 
   Description: ${prompt}. 
   Musical Key: ${options.key}. 
   Scale: ${options.scale}. 
@@ -50,7 +53,7 @@ export async function generateMusic(prompt: string, options: MusicOptions, apiKe
   Exclude: ${options.excludeInstruments.join(', ')}.`;
 
   const response = await ai.models.generateContentStream({
-    model: MUSIC_MODEL,
+    model: model,
     contents: enhancedPrompt,
     config: {
       responseModalities: [Modality.AUDIO],

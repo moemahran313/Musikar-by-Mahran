@@ -21,6 +21,7 @@ export interface MusicOptions {
   scale: string;
   includeInstruments: string[];
   excludeInstruments: string[];
+  duration: number;
 }
 
 export interface UserProfile {
