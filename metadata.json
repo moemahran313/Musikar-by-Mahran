@@ -1,0 +1,5 @@
+{
+  "name": "Musikar",
+  "description": "AI-powered music generator that allows users to create songs from text prompts using Gemini Lyria models.",
+  "requestFramePermissions": []
+}

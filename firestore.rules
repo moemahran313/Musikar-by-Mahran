@@ -1,0 +1,44 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    // Collection: songs
+    // Fields: id, userId, prompt, title, genre, mood, duration, audioUrl, lyrics, createdAt
+    //
+    // Collection: users
+    // Fields: uid, email, displayName, photoURL, createdAt
+    // ===============================================================
+
+    // Helper Functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+    function isValidSong(data) {
+      return data.userId is string && data.userId == request.auth.uid &&
+             data.prompt is string && data.prompt.size() > 0 && data.prompt.size() < 1000 &&
+             data.audioUrl is string && data.audioUrl.size() > 0 &&
+             data.createdAt is timestamp;
+    }
+    function isValidUser(data) {
+      return data.uid is string && data.uid == request.auth.uid &&
+             data.email is string && data.email.size() > 0;
+    }
+
+    match /songs/{songId} {
+      allow read: if isOwner(resource.data.userId);
+      allow create: if isAuthenticated() && isValidSong(request.resource.data);
+      allow update: if false; // Songs are immutable for now
+      allow delete: if isOwner(resource.data.userId);
+    }
+
+    match /users/{userId} {
+      allow read: if isOwner(userId);
+      allow create, update: if isOwner(userId) && isValidUser(request.resource.data);
+    }
+  }
+}
